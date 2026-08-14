@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Scan S&P 500, Nasdaq Composite, and US-listed ETFs for highest trailing
-average daily volume over the last 50 and 100 trading sessions.
+"""Scan the S&P 500, Nasdaq Composite, and a fixed ETF watchlist for highest
+trailing average daily volume over the last 50 and 100 trading sessions.
 
 Requires real internet access (Yahoo Finance + Nasdaq Trader symbol
 directory). Intended to run on GitHub Actions, not in a sandboxed
@@ -25,8 +25,10 @@ HISTORY_PERIOD = "9mo"  # comfortably covers 100+ trading sessions
 REQUEST_HEADERS = {"User-Agent": "Mozilla/5.0 (volume-scanner)"}
 
 NASDAQ_LISTED_URL = "https://www.nasdaqtrader.com/dynamic/SymDirectory/nasdaqlisted.txt"
-OTHER_LISTED_URL = "https://www.nasdaqtrader.com/dynamic/SymDirectory/otherlisted.txt"
 SP500_WIKI_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+
+# Fixed ETF watchlist (not the full ETF universe) per user request.
+FIXED_ETFS = ["XLE", "XLF", "GLD", "TLT", "XLB", "SPY", "EEM", "QQQ", "SLV", "XLRE"]
 
 
 def _clean_symbol(sym: str) -> str:
@@ -57,27 +59,12 @@ def _fetch_symbol_directory(url: str) -> pd.DataFrame:
     return pd.read_csv(io.StringIO("\n".join(lines)), sep="|")
 
 
-def fetch_nasdaq_composite_and_etfs() -> tuple[list[str], list[str]]:
+def fetch_nasdaq_composite() -> list[str]:
     nasdaq_df = _fetch_symbol_directory(NASDAQ_LISTED_URL)
-    other_df = _fetch_symbol_directory(OTHER_LISTED_URL)
-
     nasdaq_common = nasdaq_df[
         (nasdaq_df["Test Issue"] == "N") & (nasdaq_df["ETF"] == "N")
     ]["Symbol"]
-    nasdaq_etfs = nasdaq_df[
-        (nasdaq_df["Test Issue"] == "N") & (nasdaq_df["ETF"] == "Y")
-    ]["Symbol"]
-    other_etfs = other_df[
-        (other_df["Test Issue"] == "N") & (other_df["ETF"] == "Y")
-    ]["ACT Symbol"]
-
-    composite = sorted({_clean_symbol(s) for s in nasdaq_common.astype(str) if _valid_ticker(_clean_symbol(s))})
-    etfs = sorted({
-        _clean_symbol(s)
-        for s in pd.concat([nasdaq_etfs, other_etfs]).astype(str)
-        if _valid_ticker(_clean_symbol(s))
-    })
-    return composite, etfs
+    return sorted({_clean_symbol(s) for s in nasdaq_common.astype(str) if _valid_ticker(_clean_symbol(s))})
 
 
 def download_volumes(tickers: list[str]) -> dict[str, pd.Series]:
@@ -144,7 +131,8 @@ def format_table(df: pd.DataFrame) -> str:
 def main() -> None:
     print("Fetching ticker universes...", file=sys.stderr)
     sp500 = fetch_sp500()
-    nasdaq_composite, etfs = fetch_nasdaq_composite_and_etfs()
+    nasdaq_composite = fetch_nasdaq_composite()
+    etfs = sorted({_clean_symbol(s) for s in FIXED_ETFS})
     universes = {
         "S&P 500": sp500,
         "Nasdaq Composite": nasdaq_composite,
@@ -170,8 +158,9 @@ def main() -> None:
     ]
     for uni_name, tickers in universes.items():
         report_lines.append(f"## {uni_name}")
+        shown = min(TOP_N, len(tickers))
         for window in WINDOWS:
-            report_lines.append(f"### Top {TOP_N} by avg volume — trailing {window} sessions")
+            report_lines.append(f"### Top {shown} by avg volume — trailing {window} sessions")
             df = rank_universe(tickers, volumes, window, TOP_N)
             report_lines.append(format_table(df))
     report = "\n".join(report_lines)
