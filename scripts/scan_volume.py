@@ -23,6 +23,10 @@ import yfinance as yf
 WINDOWS = (50, 100)
 TOP_N = int(os.environ.get("TOP_N", "25"))
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "150"))
+# Minimum trailing-average daily volume (shares) required to qualify for the
+# ranking. Filters out illiquid names (e.g. SPAC units trading a few hundred
+# shares/day) where a tiny absolute move produces a meaningless huge ratio.
+MIN_AVG_VOLUME = int(os.environ.get("MIN_AVG_VOLUME", "100000"))
 HISTORY_PERIOD = "9mo"  # comfortably covers 100+ trading sessions
 REQUEST_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -160,7 +164,7 @@ def rank_universe(tickers: list[str], volumes: dict[str, pd.Series], window: int
             continue
         latest = vol.iloc[-1]
         baseline = vol.iloc[-(window + 1) : -1].mean()
-        if baseline <= 0:
+        if baseline < MIN_AVG_VOLUME:
             continue
         rows.append({
             "Ticker": t,
@@ -215,7 +219,8 @@ def main() -> None:
         "",
         f"Universe sizes: S&P 500 = {len(sp500)}, Nasdaq Composite = {len(nasdaq_composite)}, "
         f"ETFs = {len(etfs)}. Ranked by the most recent session's volume relative to the "
-        f"trailing 50/100-session average (biggest volume spikes first).",
+        f"trailing 50/100-session average (biggest volume spikes first). Tickers averaging "
+        f"under {MIN_AVG_VOLUME:,} shares/day are excluded to filter out illiquid noise.",
         "",
     ]
     for uni_name, tickers in universes.items():

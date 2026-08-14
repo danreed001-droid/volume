@@ -19,6 +19,9 @@ names like SPY/NVDA).
 - For each ticker, computes the 50-session and 100-session average volume
   from the sessions *before* the latest one, then ranks by
   `latest_volume / trailing_average` (highest ratio first).
+- Tickers averaging under `MIN_AVG_VOLUME` shares/day (default 100,000) are
+  excluded, since illiquid names (e.g. SPAC units trading a few hundred
+  shares/day) produce meaningless huge ratios off tiny absolute moves.
 - Writes a Markdown report to `reports/volume_report_<date>.md` and updates
   `reports/latest.md`.
 
@@ -41,6 +44,8 @@ Environment variables (set in the workflow file or when running locally):
 - `TOP_N` — how many tickers to list per universe/window (default `25`).
 - `CHUNK_SIZE` — how many tickers to request from Yahoo Finance per batch
   (default `150`). Lower this if you hit rate-limiting (HTTP 429) errors.
+- `MIN_AVG_VOLUME` — minimum trailing-average daily volume (shares) required
+  to qualify for the ranking (default `100000`).
 
 ## Running locally
 
