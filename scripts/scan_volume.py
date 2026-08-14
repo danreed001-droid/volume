@@ -53,10 +53,25 @@ def fetch_sp500() -> list[str]:
 def _fetch_symbol_directory(url: str) -> pd.DataFrame:
     resp = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
     resp.raise_for_status()
-    lines = resp.text.strip().splitlines()
-    # Last line is a "File Creation Time" footer, not data.
-    lines = [ln for ln in lines if not ln.startswith("File Creation Time")]
-    return pd.read_csv(io.StringIO("\n".join(lines)), sep="|")
+    lines = [ln for ln in resp.text.strip().splitlines() if ln.strip()]
+    if not lines:
+        raise ValueError(f"Empty response from {url}")
+
+    header = lines[0].split("|")
+    ncols = len(header)
+    rows = []
+    skipped = 0
+    # Skip the header and any trailing footer line(s) (e.g. "File Creation
+    # Time: ...") or other malformed rows that don't match the header width.
+    for ln in lines[1:]:
+        fields = ln.split("|")
+        if len(fields) == ncols:
+            rows.append(fields)
+        else:
+            skipped += 1
+    if skipped:
+        print(f"  {url}: skipped {skipped} malformed line(s)", file=sys.stderr)
+    return pd.DataFrame(rows, columns=header)
 
 
 def fetch_nasdaq_composite() -> list[str]:
