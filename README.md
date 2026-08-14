@@ -20,14 +20,15 @@ with the highest trailing average daily volume over the last **50** and
 
 ## Schedule
 
-`.github/workflows/volume-scan.yml` runs this every **Saturday 13:00 UTC**
-(after Friday's close) via GitHub Actions and commits the updated report
-back to the repo. It also supports manual runs via the "Run workflow"
-button (`workflow_dispatch`).
+`.github/workflows/volume-scan.yml` runs this every **weekday at 22:00 UTC**
+(after the US market close) via GitHub Actions and commits the updated
+report back to the repo. It also supports manual runs via the "Run
+workflow" button (`workflow_dispatch`).
 
 **Note:** scheduled (`cron`) workflows on GitHub only fire from the
-repository's default branch, so this workflow needs to be merged there
-before the schedule becomes active.
+repository's default branch. This branch (`claude/volume-tickers-sp500-nasdaq-e9tusw`)
+is currently the repo's default branch (the repo had no commits before this
+change), so the schedule is active as-is.
 
 ## Configuration
 

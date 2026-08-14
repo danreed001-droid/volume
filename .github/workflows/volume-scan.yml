@@ -2,8 +2,9 @@ name: Volume Scan
 
 on:
   schedule:
-    # Every Saturday 13:00 UTC (after Friday's close, all US markets closed).
-    - cron: "0 13 * * 6"
+    # Every weekday at 22:00 UTC (after the US market close, once Yahoo's
+    # end-of-day volume figures have settled).
+    - cron: "0 22 * * 1-5"
   workflow_dispatch: {}
 
 permissions:
