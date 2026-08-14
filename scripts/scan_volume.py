@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Scan the S&P 500, Nasdaq Composite, and a fixed ETF watchlist for highest
-trailing average daily volume over the last 50 and 100 trading sessions.
+"""Scan the S&P 500, Nasdaq Composite, and a fixed ETF watchlist for the
+biggest volume spikes: tickers whose most recent session's volume is
+highest relative to their trailing 50-session and 100-session average.
 
 Requires real internet access (Yahoo Finance + Nasdaq Trader symbol
 directory). Intended to run on GitHub Actions, not in a sandboxed
@@ -149,24 +150,42 @@ def download_volumes(tickers: list[str]) -> dict[str, pd.Series]:
 
 
 def rank_universe(tickers: list[str], volumes: dict[str, pd.Series], window: int, top_n: int) -> pd.DataFrame:
+    """Rank by how far the most recent session's volume exceeds the trailing
+    `window`-session average (computed from the sessions *before* today, so
+    today's spike isn't diluting its own baseline)."""
     rows = []
     for t in tickers:
         vol = volumes.get(t)
-        if vol is None or len(vol) < window:
+        if vol is None or len(vol) < window + 1:
             continue
-        avg = vol.tail(window).mean()
-        rows.append({"Ticker": t, "AvgVolume": avg})
-    df = pd.DataFrame(rows).sort_values("AvgVolume", ascending=False).head(top_n)
-    df["AvgVolume"] = df["AvgVolume"].round(0).astype("int64")
+        latest = vol.iloc[-1]
+        baseline = vol.iloc[-(window + 1) : -1].mean()
+        if baseline <= 0:
+            continue
+        rows.append({
+            "Ticker": t,
+            "LatestVolume": latest,
+            "AvgVolume": baseline,
+            "Ratio": latest / baseline,
+        })
+    df = pd.DataFrame(rows).sort_values("Ratio", ascending=False).head(top_n)
+    for col in ("LatestVolume", "AvgVolume"):
+        df[col] = df[col].round(0).astype("int64")
+    df["Ratio"] = df["Ratio"].round(2)
     return df.reset_index(drop=True)
 
 
 def format_table(df: pd.DataFrame) -> str:
     if df.empty:
         return "_No data available._\n"
-    lines = ["| # | Ticker | Avg Daily Volume |", "|---|--------|------------------:|"]
+    lines = [
+        "| # | Ticker | Latest Volume | Avg Volume | vs Avg |",
+        "|---|--------|---------------:|-----------:|-------:|",
+    ]
     for i, row in enumerate(df.itertuples(index=False), start=1):
-        lines.append(f"| {i} | {row.Ticker} | {row.AvgVolume:,} |")
+        lines.append(
+            f"| {i} | {row.Ticker} | {row.LatestVolume:,} | {row.AvgVolume:,} | {row.Ratio:.2f}x |"
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -195,14 +214,17 @@ def main() -> None:
         f"# Volume Scan — {today}",
         "",
         f"Universe sizes: S&P 500 = {len(sp500)}, Nasdaq Composite = {len(nasdaq_composite)}, "
-        f"ETFs = {len(etfs)}. Ranked by trailing average daily volume (shares/day).",
+        f"ETFs = {len(etfs)}. Ranked by the most recent session's volume relative to the "
+        f"trailing 50/100-session average (biggest volume spikes first).",
         "",
     ]
     for uni_name, tickers in universes.items():
         report_lines.append(f"## {uni_name}")
         shown = min(TOP_N, len(tickers))
         for window in WINDOWS:
-            report_lines.append(f"### Top {shown} by avg volume — trailing {window} sessions")
+            report_lines.append(
+                f"### Top {shown} — latest session volume vs {window}-session average"
+            )
             df = rank_universe(tickers, volumes, window, TOP_N)
             report_lines.append(format_table(df))
     report = "\n".join(report_lines)

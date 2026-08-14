@@ -1,8 +1,10 @@
 # Volume Scanner
 
 Scans the **S&P 500**, **Nasdaq Composite**, and a fixed **ETF watchlist**
-for the tickers with the highest trailing average daily volume over the
-last **50** and **100** trading sessions.
+for the biggest volume spikes: tickers whose most recent session's volume
+is highest relative to their trailing **50-session** and **100-session**
+average (i.e. unusual activity today, not just perpetually high-volume
+names like SPY/NVDA).
 
 ## How it works
 
@@ -14,7 +16,9 @@ last **50** and **100** trading sessions.
     XLRE` (edit `FIXED_ETFS` in the script to change it).
 - Pulls ~9 months of daily volume history per ticker from Yahoo Finance
   (`yfinance`), in chunks, with basic retry/backoff.
-- Computes trailing 50-day and 100-day average daily volume per ticker.
+- For each ticker, computes the 50-session and 100-session average volume
+  from the sessions *before* the latest one, then ranks by
+  `latest_volume / trailing_average` (highest ratio first).
 - Writes a Markdown report to `reports/volume_report_<date>.md` and updates
   `reports/latest.md`.
 
