@@ -57,20 +57,21 @@ def _fetch_symbol_directory(url: str) -> pd.DataFrame:
     if not lines:
         raise ValueError(f"Empty response from {url}")
 
-    header = lines[0].split("|")
+    header = [h.strip() for h in lines[0].split("|")]
     ncols = len(header)
     rows = []
     skipped = 0
     # Skip the header and any trailing footer line(s) (e.g. "File Creation
     # Time: ...") or other malformed rows that don't match the header width.
     for ln in lines[1:]:
-        fields = ln.split("|")
+        fields = [f.strip() for f in ln.split("|")]
         if len(fields) == ncols:
             rows.append(fields)
         else:
             skipped += 1
     if skipped:
         print(f"  {url}: skipped {skipped} malformed line(s)", file=sys.stderr)
+    print(f"  {url}: columns = {header}", file=sys.stderr)
     return pd.DataFrame(rows, columns=header)
 
 
