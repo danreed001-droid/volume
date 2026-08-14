@@ -12,6 +12,7 @@ import io
 import os
 import sys
 import time
+import urllib.request
 from datetime import date
 
 import pandas as pd
@@ -22,9 +23,17 @@ WINDOWS = (50, 100)
 TOP_N = int(os.environ.get("TOP_N", "25"))
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "150"))
 HISTORY_PERIOD = "9mo"  # comfortably covers 100+ trading sessions
-REQUEST_HEADERS = {"User-Agent": "Mozilla/5.0 (volume-scanner)"}
+REQUEST_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/plain,text/html,application/xhtml+xml,*/*;q=0.9",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.nasdaqtrader.com/trader.aspx?id=symboldirdefs",
+}
 
-NASDAQ_LISTED_URL = "https://www.nasdaqtrader.com/dynamic/SymDirectory/nasdaqlisted.txt"
+NASDAQ_LISTED_FILENAME = "nasdaqlisted.txt"
+NASDAQ_LISTED_HTTPS_URL = f"https://www.nasdaqtrader.com/dynamic/SymDirectory/{NASDAQ_LISTED_FILENAME}"
+NASDAQ_LISTED_FTP_URL = f"ftp://ftp.nasdaqtrader.com/symboldirectory/{NASDAQ_LISTED_FILENAME}"
 SP500_WIKI_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 
 # Fixed ETF watchlist (not the full ETF universe) per user request.
@@ -50,14 +59,18 @@ def fetch_sp500() -> list[str]:
     return sorted({_clean_symbol(s) for s in df["Symbol"].astype(str) if _valid_ticker(_clean_symbol(s))})
 
 
-def _fetch_symbol_directory(url: str) -> pd.DataFrame:
-    resp = requests.get(url, headers=REQUEST_HEADERS, timeout=30)
-    resp.raise_for_status()
-    lines = [ln for ln in resp.text.strip().splitlines() if ln.strip()]
+def _parse_symbol_directory(text: str, source: str) -> pd.DataFrame:
+    lines = [ln for ln in text.strip().splitlines() if ln.strip()]
     if not lines:
-        raise ValueError(f"Empty response from {url}")
+        raise ValueError(f"Empty response from {source}")
 
     header = [h.strip() for h in lines[0].split("|")]
+    if header[0].lower() != "symbol":
+        raise ValueError(
+            f"{source} did not return the expected symbol directory "
+            f"(first line was: {lines[0][:200]!r})"
+        )
+
     ncols = len(header)
     rows = []
     skipped = 0
@@ -70,13 +83,26 @@ def _fetch_symbol_directory(url: str) -> pd.DataFrame:
         else:
             skipped += 1
     if skipped:
-        print(f"  {url}: skipped {skipped} malformed line(s)", file=sys.stderr)
-    print(f"  {url}: columns = {header}", file=sys.stderr)
+        print(f"  {source}: skipped {skipped} malformed line(s)", file=sys.stderr)
+    print(f"  {source}: columns = {header}, rows = {len(rows)}", file=sys.stderr)
     return pd.DataFrame(rows, columns=header)
 
 
+def _fetch_symbol_directory(https_url: str, ftp_url: str) -> pd.DataFrame:
+    try:
+        resp = requests.get(https_url, headers=REQUEST_HEADERS, timeout=30)
+        resp.raise_for_status()
+        return _parse_symbol_directory(resp.text, https_url)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  {https_url} failed ({exc}); falling back to FTP", file=sys.stderr)
+
+    with urllib.request.urlopen(ftp_url, timeout=30) as resp:
+        text = resp.read().decode("utf-8", errors="replace")
+    return _parse_symbol_directory(text, ftp_url)
+
+
 def fetch_nasdaq_composite() -> list[str]:
-    nasdaq_df = _fetch_symbol_directory(NASDAQ_LISTED_URL)
+    nasdaq_df = _fetch_symbol_directory(NASDAQ_LISTED_HTTPS_URL, NASDAQ_LISTED_FTP_URL)
     nasdaq_common = nasdaq_df[
         (nasdaq_df["Test Issue"] == "N") & (nasdaq_df["ETF"] == "N")
     ]["Symbol"]
