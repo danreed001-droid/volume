@@ -172,6 +172,8 @@ def rank_universe(tickers: list[str], volumes: dict[str, pd.Series], window: int
             "AvgVolume": baseline,
             "Ratio": latest / baseline,
         })
+    if not rows:
+        return pd.DataFrame(columns=["Ticker", "LatestVolume", "AvgVolume", "Ratio"])
     df = pd.DataFrame(rows).sort_values("Ratio", ascending=False).head(top_n)
     for col in ("LatestVolume", "AvgVolume"):
         df[col] = df[col].round(0).astype("int64")
@@ -216,11 +218,12 @@ def find_volume_breakouts(tickers: list[str], volumes: dict[str, pd.Series], top
                 "Max100": max_100,
                 "Ratio": latest / max_100,
             })
+    if not rows:
+        return pd.DataFrame(columns=["Ticker", "LatestVolume", "Max50", "Max100", "Ratio"])
     df = pd.DataFrame(rows).sort_values("Ratio", ascending=False).head(top_n)
     for col in ("LatestVolume", "Max50", "Max100"):
         df[col] = df[col].round(0).astype("int64")
-    if "Ratio" in df:
-        df["Ratio"] = df["Ratio"].round(2)
+    df["Ratio"] = df["Ratio"].round(2)
     return df.reset_index(drop=True)
 
 
