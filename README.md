@@ -22,6 +22,10 @@ names like SPY/NVDA).
 - Tickers averaging under `MIN_AVG_VOLUME` shares/day (default 100,000) are
   excluded, since illiquid names (e.g. SPAC units trading a few hundred
   shares/day) produce meaningless huge ratios off tiny absolute moves.
+- Each universe also gets a **"Fresh volume highs"** section: tickers whose
+  latest session's volume beat every single session in the trailing 50 days
+  *and* every one in the trailing 100 days — a genuine volume breakout,
+  not just "above average."
 - Writes a Markdown report to `reports/volume_report_<date>.md` and updates
   `reports/latest.md`.
 

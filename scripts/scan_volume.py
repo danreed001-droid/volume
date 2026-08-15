@@ -193,6 +193,52 @@ def format_table(df: pd.DataFrame) -> str:
     return "\n".join(lines) + "\n"
 
 
+def find_volume_breakouts(tickers: list[str], volumes: dict[str, pd.Series], top_n: int) -> pd.DataFrame:
+    """Tickers whose most recent session's volume is higher than every one
+    of the trailing 50 sessions AND every one of the trailing 100 sessions
+    (a fresh volume high on both timeframes at once)."""
+    rows = []
+    for t in tickers:
+        vol = volumes.get(t)
+        if vol is None or len(vol) < 101:
+            continue
+        latest = vol.iloc[-1]
+        prior_50 = vol.iloc[-51:-1]
+        prior_100 = vol.iloc[-101:-1]
+        if prior_50.mean() < MIN_AVG_VOLUME:
+            continue
+        max_50, max_100 = prior_50.max(), prior_100.max()
+        if latest > max_50 and latest > max_100:
+            rows.append({
+                "Ticker": t,
+                "LatestVolume": latest,
+                "Max50": max_50,
+                "Max100": max_100,
+                "Ratio": latest / max_100,
+            })
+    df = pd.DataFrame(rows).sort_values("Ratio", ascending=False).head(top_n)
+    for col in ("LatestVolume", "Max50", "Max100"):
+        df[col] = df[col].round(0).astype("int64")
+    if "Ratio" in df:
+        df["Ratio"] = df["Ratio"].round(2)
+    return df.reset_index(drop=True)
+
+
+def format_breakout_table(df: pd.DataFrame) -> str:
+    if df.empty:
+        return "_None qualified._\n"
+    lines = [
+        "| # | Ticker | Latest Volume | Prior 50d Max | Prior 100d Max | vs 100d Max |",
+        "|---|--------|---------------:|---------------:|----------------:|------------:|",
+    ]
+    for i, row in enumerate(df.itertuples(index=False), start=1):
+        lines.append(
+            f"| {i} | {row.Ticker} | {row.LatestVolume:,} | {row.Max50:,} | "
+            f"{row.Max100:,} | {row.Ratio:.2f}x |"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def main() -> None:
     print("Fetching ticker universes...", file=sys.stderr)
     sp500 = fetch_sp500()
@@ -232,6 +278,13 @@ def main() -> None:
             )
             df = rank_universe(tickers, volumes, window, TOP_N)
             report_lines.append(format_table(df))
+
+        report_lines.append(
+            "### Fresh volume highs — latest session above every one of the "
+            "trailing 50 AND 100 sessions"
+        )
+        breakout_df = find_volume_breakouts(tickers, volumes, TOP_N)
+        report_lines.append(format_breakout_table(breakout_df))
     report = "\n".join(report_lines)
 
     os.makedirs("reports", exist_ok=True)
