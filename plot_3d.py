@@ -101,7 +101,13 @@ def build_chart_html(ticker: str, category: str, note: str, ohlcv_rows: list[dic
 
     html_div = pio.to_html(
         fig, full_html=False,
-        include_plotlyjs="cdn" if include_plotlyjs else False,
+        # Embed the Plotly library directly in the page (True) rather than
+        # loading it from a CDN ("cdn"). The CDN version leaves the chart
+        # canvases blank whenever the file is opened somewhere without
+        # internet access to cdn.plot.ly -- the surrounding page still
+        # renders (it's plain HTML/CSS) but nothing ever calls
+        # Plotly.newPlot(), so every chart area is silently empty.
+        include_plotlyjs=True if include_plotlyjs else False,
         config={"scrollZoom": True, "displayModeBar": True},
     )
     return html_div, f"ok ({len(bars)} bars, {first_date}→{last_date}, {pct_chg:+.1f}%)"
