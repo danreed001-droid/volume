@@ -10,6 +10,7 @@ environment with restricted egress.
 from __future__ import annotations
 
 import io
+import json
 import os
 import sys
 import time
@@ -20,6 +21,8 @@ import pandas as pd
 import requests
 import yfinance as yf
 
+import plot_3d
+
 WINDOWS = (50, 100)
 TOP_N = int(os.environ.get("TOP_N", "25"))
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "150"))
@@ -28,6 +31,9 @@ CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "150"))
 # shares/day) where a tiny absolute move produces a meaningless huge ratio.
 MIN_AVG_VOLUME = int(os.environ.get("MIN_AVG_VOLUME", "100000"))
 HISTORY_PERIOD = "9mo"  # comfortably covers 100+ trading sessions
+# How many chart-worthy tickers to pull full OHLCV history for (fresh-volume-
+# high tickers are always included on top of this; see build_3d_chart_set).
+CHART_TOP_N = int(os.environ.get("CHART_TOP_N", "10"))
 REQUEST_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -151,6 +157,87 @@ def download_volumes(tickers: list[str]) -> dict[str, pd.Series]:
                 volumes[ticker] = vol
         time.sleep(1)  # be polite between chunks
     return volumes
+
+
+def download_ohlcv(tickers: list[str]) -> dict[str, list[dict]]:
+    """Download full daily OHLCV history (not just Volume) for a small set of
+    chart-worthy tickers, for the 3D price/volume report. Uses auto_adjust
+    so Close reflects splits/dividends the same way the Colab notebook's
+    `t.history()` calls do."""
+    ohlcv: dict[str, list[dict]] = {}
+    if not tickers:
+        return ohlcv
+    chunks = [tickers[i : i + CHUNK_SIZE] for i in range(0, len(tickers), CHUNK_SIZE)]
+    for idx, chunk in enumerate(chunks, start=1):
+        print(f"  OHLCV chunk {idx}/{len(chunks)} ({len(chunk)} tickers)", file=sys.stderr)
+        for attempt in range(3):
+            try:
+                data = yf.download(
+                    tickers=chunk,
+                    period=HISTORY_PERIOD,
+                    interval="1d",
+                    group_by="ticker",
+                    threads=True,
+                    progress=False,
+                    auto_adjust=True,
+                )
+                break
+            except Exception as exc:  # noqa: BLE001
+                print(f"    retry {attempt + 1} after error: {exc}", file=sys.stderr)
+                time.sleep(5 * (attempt + 1))
+        else:
+            continue
+
+        for ticker in chunk:
+            try:
+                df = data[ticker] if len(chunk) > 1 else data
+                df = df.dropna(subset=["Close"])
+            except (KeyError, TypeError):
+                continue
+            if df.empty:
+                continue
+            rows = [
+                {
+                    "t": ts.strftime("%Y-%m-%d"),
+                    "o": None if pd.isna(row["Open"]) else round(float(row["Open"]), 6),
+                    "h": None if pd.isna(row["High"]) else round(float(row["High"]), 6),
+                    "l": None if pd.isna(row["Low"]) else round(float(row["Low"]), 6),
+                    "c": round(float(row["Close"]), 6),
+                    "v": None if pd.isna(row["Volume"]) else int(row["Volume"]),
+                }
+                for ts, row in df.iterrows()
+            ]
+            ohlcv[ticker] = rows
+        time.sleep(1)
+    return ohlcv
+
+
+def build_3d_chart_set(
+    universes: dict[str, list[str]],
+    volumes: dict[str, pd.Series],
+    top_n: int,
+) -> dict[str, dict]:
+    """Pick the tickers worth putting a 3D chart in front of a human for:
+    every "fresh volume high" (the genuine breakouts) plus the top
+    `CHART_TOP_N` from each universe/window ranking (the headline spikes),
+    deduped, in a stable order. Returns {ticker: {"category", "note"}}."""
+    flagged: dict[str, dict] = {}
+
+    for uni_name, tickers in universes.items():
+        breakout_df = find_volume_breakouts(tickers, volumes, top_n)
+        for row in breakout_df.itertuples(index=False):
+            flagged.setdefault(row.Ticker, {
+                "category": f"{uni_name} — Fresh Volume High",
+                "note": f"{row.Ratio:.2f}x 100d max",
+            })
+        for window in WINDOWS:
+            rank_df = rank_universe(tickers, volumes, window, CHART_TOP_N)
+            for row in rank_df.itertuples(index=False):
+                flagged.setdefault(row.Ticker, {
+                    "category": f"{uni_name} — Top Volume Spike",
+                    "note": f"{row.Ratio:.2f}x {window}d avg",
+                })
+    return flagged
 
 
 def rank_universe(tickers: list[str], volumes: dict[str, pd.Series], window: int, top_n: int) -> pd.DataFrame:
@@ -298,6 +385,34 @@ def main() -> None:
         f.write(report)
 
     print(f"Wrote {dated_path} and reports/latest.md", file=sys.stderr)
+
+    # --- 3D price/volume charts (Colab "VSA 3D Performance Analyzer" logic) ---
+    # Chart every fresh-volume-high plus each universe's top volume-spike
+    # names. These are exactly the tickers the markdown report calls out, so
+    # the ranking work above is reused rather than re-scanned.
+    print("Building 3D chart ticker set...", file=sys.stderr)
+    flagged = build_3d_chart_set(universes, volumes, TOP_N)
+    print(f"  {len(flagged)} tickers flagged for 3D charts", file=sys.stderr)
+
+    print(f"Downloading OHLCV history for {len(flagged)} chart tickers...", file=sys.stderr)
+    ohlcv = download_ohlcv(sorted(flagged))
+    print(f"  got OHLCV for {len(ohlcv)} tickers", file=sys.stderr)
+
+    data_path = f"reports/volume_data_{today}.json"
+    bundle = {"report_date": today, "flagged": flagged, "ohlcv": ohlcv}
+    with open(data_path, "w") as f:
+        json.dump(bundle, f)
+    with open("reports/volume_data_latest.json", "w") as f:
+        json.dump(bundle, f)
+
+    html = plot_3d.build_report_html(today, flagged, ohlcv)
+    html_path = f"reports/volume_3d_{today}.html"
+    with open(html_path, "w") as f:
+        f.write(html)
+    with open("reports/volume_3d_latest.html", "w") as f:
+        f.write(html)
+
+    print(f"Wrote {html_path}, reports/volume_3d_latest.html, and {data_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":
