@@ -21,7 +21,7 @@ import pandas as pd
 import requests
 import yfinance as yf
 
-import plot_3d
+import plot_vsa2d
 
 WINDOWS = (50, 100)
 TOP_N = int(os.environ.get("TOP_N", "25"))
@@ -32,7 +32,7 @@ CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "150"))
 MIN_AVG_VOLUME = int(os.environ.get("MIN_AVG_VOLUME", "100000"))
 HISTORY_PERIOD = "9mo"  # comfortably covers 100+ trading sessions
 # How many chart-worthy tickers to pull full OHLCV history for (fresh-volume-
-# high tickers are always included on top of this; see build_3d_chart_set).
+# high tickers are always included on top of this; see build_chart_set).
 CHART_TOP_N = int(os.environ.get("CHART_TOP_N", "10"))
 REQUEST_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -161,8 +161,8 @@ def download_volumes(tickers: list[str]) -> dict[str, pd.Series]:
 
 def download_ohlcv(tickers: list[str]) -> dict[str, list[dict]]:
     """Download full daily OHLCV history (not just Volume) for a small set of
-    chart-worthy tickers, for the 3D price/volume report. Uses auto_adjust
-    so Close reflects splits/dividends the same way the Colab notebook's
+    chart-worthy tickers, for the price/volume report. Uses auto_adjust so
+    Close reflects splits/dividends the same way the Colab notebook's
     `t.history()` calls do."""
     ohlcv: dict[str, list[dict]] = {}
     if not tickers:
@@ -212,7 +212,7 @@ def download_ohlcv(tickers: list[str]) -> dict[str, list[dict]]:
     return ohlcv
 
 
-def build_3d_chart_set(
+def build_chart_set(
     universes: dict[str, list[str]],
     volumes: dict[str, pd.Series],
     top_n: int,
@@ -386,13 +386,13 @@ def main() -> None:
 
     print(f"Wrote {dated_path} and reports/latest.md", file=sys.stderr)
 
-    # --- 3D price/volume charts (Colab "VSA 3D Performance Analyzer" logic) ---
+    # --- price/volume charts (Colab "Multi-Chart Price + Volume Viewer" logic) ---
     # Chart every fresh-volume-high plus each universe's top volume-spike
     # names. These are exactly the tickers the markdown report calls out, so
     # the ranking work above is reused rather than re-scanned.
-    print("Building 3D chart ticker set...", file=sys.stderr)
-    flagged = build_3d_chart_set(universes, volumes, TOP_N)
-    print(f"  {len(flagged)} tickers flagged for 3D charts", file=sys.stderr)
+    print("Building chart ticker set...", file=sys.stderr)
+    flagged = build_chart_set(universes, volumes, TOP_N)
+    print(f"  {len(flagged)} tickers flagged for charts", file=sys.stderr)
 
     print(f"Downloading OHLCV history for {len(flagged)} chart tickers...", file=sys.stderr)
     ohlcv = download_ohlcv(sorted(flagged))
@@ -405,14 +405,14 @@ def main() -> None:
     with open("reports/volume_data_latest.json", "w") as f:
         json.dump(bundle, f)
 
-    html = plot_3d.build_report_html(today, flagged, ohlcv)
-    html_path = f"reports/volume_3d_{today}.html"
+    html = plot_vsa2d.build_report_html(today, flagged, ohlcv)
+    html_path = f"reports/volume_2d_{today}.html"
     with open(html_path, "w") as f:
         f.write(html)
-    with open("reports/volume_3d_latest.html", "w") as f:
+    with open("reports/volume_2d_latest.html", "w") as f:
         f.write(html)
 
-    print(f"Wrote {html_path}, reports/volume_3d_latest.html, and {data_path}", file=sys.stderr)
+    print(f"Wrote {html_path}, reports/volume_2d_latest.html, and {data_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":
