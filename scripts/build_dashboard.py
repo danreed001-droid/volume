@@ -114,6 +114,17 @@ TABS = [
     {"id": "scan", "label": "Volume Scan (Top Movers)", "kind": "markdown", "path": "latest.md"},
     {"id": "2d", "label": "Volume @ Price (2D)", "kind": "iframe", "path": "volume_2d_latest.html"},
     {"id": "dual", "label": "Dual-Timeframe Watchlist", "kind": "iframe", "path": "dual_timeframe_latest.html"},
+    # A separate repo/site (not one of this workflow's own reports), so it's
+    # "external" rather than "iframe": always available (no local file to
+    # check for), and rendered with a visible "open directly" link alongside
+    # the embed in case GitHub Pages or that repo ever adds framing
+    # restrictions this workflow has no control over.
+    {
+        "id": "moneyflow",
+        "label": "Money Flow",
+        "kind": "external",
+        "url": "https://danreed001-droid.github.io/moneyflow/",
+    },
 ]
 
 PAGE_HEAD = """<!DOCTYPE html>
@@ -162,6 +173,10 @@ PAGE_HEAD = """<!DOCTYPE html>
     width: 100%; height: 82vh; border: 1px solid var(--border); border-radius: 8px;
     background: var(--plane);
   }
+  .external-note {
+    font-size: 11px; color: var(--muted); margin: 0 0 8px;
+  }
+  .external-note a { color: var(--series); }
   .md-report {
     background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
     padding: 16px 20px; max-height: 82vh; overflow: auto;
@@ -230,8 +245,16 @@ def build_dashboard() -> str:
     first_available: str | None = None
 
     for tab in TABS:
-        full_path = os.path.join(REPORTS_DIR, tab["path"])
-        available = os.path.isfile(full_path)
+        if tab["kind"] == "external":
+            # A link to a different site entirely -- always "available" since
+            # there's no local file to check for; embedded via iframe with a
+            # plain link right above it in case that site (out of this repo's
+            # control) ever blocks being framed.
+            available = True
+        else:
+            full_path = os.path.join(REPORTS_DIR, tab["path"])
+            available = os.path.isfile(full_path)
+
         if available and first_available is None:
             first_available = tab["id"]
 
@@ -251,6 +274,13 @@ def build_dashboard() -> str:
             )
         elif tab["kind"] == "iframe":
             body = f'<iframe data-src="{tab["path"]}" class="report-frame"></iframe>'
+        elif tab["kind"] == "external":
+            body = (
+                f'<p class="external-note">From a separate site/repo &mdash; '
+                f'<a href="{tab["url"]}" target="_blank" rel="noopener">open directly '
+                f'in a new tab &#8599;</a> if it doesn\'t load below.</p>'
+                f'<iframe data-src="{tab["url"]}" class="report-frame"></iframe>'
+            )
         else:
             with open(full_path, encoding="utf-8") as f:
                 body = f'<div class="md-report">{markdown_to_html(f.read())}</div>'
