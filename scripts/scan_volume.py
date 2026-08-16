@@ -378,13 +378,12 @@ def main() -> None:
     report = "\n".join(report_lines)
 
     os.makedirs("reports", exist_ok=True)
-    dated_path = f"reports/volume_report_{today}.md"
-    with open(dated_path, "w") as f:
-        f.write(report)
+    # Single rolling file, overwritten each run -- no more dated
+    # reports/volume_report_<date>.md copies piling up.
     with open("reports/latest.md", "w") as f:
         f.write(report)
 
-    print(f"Wrote {dated_path} and reports/latest.md", file=sys.stderr)
+    print("Wrote reports/latest.md", file=sys.stderr)
 
     # --- price/volume charts (Colab "Multi-Chart Price + Volume Viewer" logic) ---
     # Chart every fresh-volume-high plus each universe's top volume-spike
@@ -398,21 +397,17 @@ def main() -> None:
     ohlcv = download_ohlcv(sorted(flagged))
     print(f"  got OHLCV for {len(ohlcv)} tickers", file=sys.stderr)
 
-    data_path = f"reports/volume_data_{today}.json"
+    # Single rolling files, overwritten each run -- no more dated
+    # reports/volume_data_<date>.json / volume_2d_<date>.html copies.
     bundle = {"report_date": today, "flagged": flagged, "ohlcv": ohlcv}
-    with open(data_path, "w") as f:
-        json.dump(bundle, f)
     with open("reports/volume_data_latest.json", "w") as f:
         json.dump(bundle, f)
 
     html = plot_vsa2d.build_report_html(today, flagged, ohlcv)
-    html_path = f"reports/volume_2d_{today}.html"
-    with open(html_path, "w") as f:
-        f.write(html)
     with open("reports/volume_2d_latest.html", "w") as f:
         f.write(html)
 
-    print(f"Wrote {html_path}, reports/volume_2d_latest.html, and {data_path}", file=sys.stderr)
+    print("Wrote reports/volume_2d_latest.html and reports/volume_data_latest.json", file=sys.stderr)
 
 
 if __name__ == "__main__":
