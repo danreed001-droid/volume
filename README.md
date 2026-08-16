@@ -67,3 +67,67 @@ and Yahoo Finance.
   Nasdaq Composite combined is still ~3,500-4,000 tickers, so if runs start
   failing partway through, reduce `CHUNK_SIZE` and/or increase the delay
   between chunks in `scan_volume.py`.
+
+## Dual-timeframe watchlist report
+
+A second, separate report: for a curated ~650-ticker watchlist (S&P 500 +
+a themed VSA watchlist + ETFs/FX/crypto), it plots an **hourly chart (last
+50 candles)** and a **daily chart (last 365 days)** side by side for every
+ticker, with click-to-filter chips for each group and click-to-sort
+columns. It's a compact scanning tool, not a scoring/ranking model like the
+volume scan above.
+
+- `scripts/watchlists.py` — the ticker universes and group definitions:
+  - `SP500` — the same S&P 500 constituent list format as the main scan.
+  - `SC_ETFS` / `SC_FX` / `SC_CRYPTO` — a small fixed ETF/FX/crypto
+    watchlist.
+  - `VSA_ASSETS` — 15 hand-curated themed groups (Tech & AI, Finance &
+    Value, Aero & Defense, Biotech & Pharma, Cybersecurity, Nuclear &
+    Power, etc.), each a short list of representative tickers.
+  - `GROUPS` — all of the above merged into one dict keyed by group name,
+    used to build the report's filter chips. A ticker can belong to more
+    than one group (e.g. `AAPL` is both `S&P 500` and `TECH & AI`) — its
+    row shows every group it's in, and it appears whenever any of its
+    groups is selected.
+- `scripts/dual_timeframe_scan.py` — the report generator:
+  - Fetches both timeframes with `yfinance`, in chunks of 150 tickers
+    (`--chunk-size` to change), with 3 retries and backoff per chunk —
+    matching `scan_volume.py`'s conventions.
+  - If a ticker fails on both timeframes it's skipped (not fatal to the
+    run); if it fails on only one, its row still renders with the other
+    chart and a "—" placeholder. The report footer states how many of the
+    requested tickers actually rendered vs. were skipped, and why
+    (delisted, renamed, or a transient fetch failure — not a bug in the
+    report).
+  - Charts are rendered as small inline SVG candlesticks rather than full
+    interactive Plotly charts (like `plot_vsa2d.py` uses) — at ~650 rows x
+    2 charts each, embedding a Plotly figure per chart would make the file
+    enormous; SVG keeps it a single lightweight, fast-loading HTML file.
+  - Each ticker's two charts are scaled independently to their own
+    high/low range (not a shared/comparable price axis across tickers) —
+    the point is to eyeball each ticker's own recent shape, not compare
+    absolute price levels between tickers.
+  - No company-name lookup — at this scale, an extra API call per ticker
+    just for display names isn't worth it, so rows show ticker symbols
+    only.
+  - Sticky header row and sticky rank (`#`) column so you can keep your
+    place while scrolling a ~650-row table on a small screen.
+
+Run it locally:
+
+```bash
+python scripts/dual_timeframe_scan.py -o reports/dual_timeframe_latest.html
+```
+
+Or, for a fast offline smoke test with synthetic data (no network calls,
+no yfinance rate limits):
+
+```bash
+python scripts/dual_timeframe_scan.py --demo --limit 24 -o /tmp/demo.html
+```
+
+It runs automatically as a second step in `.github/workflows/volume-scan.yml`,
+right after the main volume scan, writing to
+`reports/dual_timeframe_latest.html`. That step is marked
+`continue-on-error: true` so a bad day for this scan never blocks the
+primary volume scan's report from being committed.
