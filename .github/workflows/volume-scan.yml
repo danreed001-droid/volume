@@ -2,9 +2,14 @@ name: Volume Scan
 
 on:
   schedule:
-    # Every weekday at 22:00 UTC (after the US market close, once Yahoo's
-    # end-of-day volume figures have settled).
-    - cron: "0 22 * * 1-5"
+    # Twice a day, weekdays: ~5:00 AM ET and ~3:00 PM ET.
+    # GitHub Actions cron is always UTC and does not shift for US daylight
+    # saving -- these two lines are set for EDT (UTC-4), which is what's in
+    # effect right now (US Eastern is in daylight saving Mar-Nov). During
+    # EST (UTC-5, Nov-Mar) both runs will actually fire ~1 hour later than
+    # intended (6 AM / 4 PM ET) until updated to "0 10 * * 1-5" / "0 20 * * 1-5".
+    - cron: "0 9 * * 1-5"   # ~5:00 AM ET
+    - cron: "0 19 * * 1-5"  # ~3:00 PM ET
   workflow_dispatch: {}
 
 permissions:
@@ -39,6 +44,9 @@ jobs:
         # unexpected.
         continue-on-error: true
         run: python scripts/dual_timeframe_scan.py -o reports/dual_timeframe_latest.html
+
+      - name: Build combined dashboard (reports/index.html)
+        run: python scripts/build_dashboard.py
 
       - name: Commit and push report
         run: |
