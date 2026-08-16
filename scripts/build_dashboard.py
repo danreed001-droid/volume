@@ -28,6 +28,14 @@ from datetime import datetime, timezone
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPORTS_DIR = os.path.join(REPO_ROOT, "reports")
 
+# Deep-links straight to this workflow's "Run workflow" button on GitHub.
+# Deliberately NOT a one-click API trigger -- that would require embedding a
+# GitHub access token in this page's HTML, and since GitHub Pages serves this
+# publicly, anyone viewing the page could lift that token and use it to push
+# to or modify the repo. This link just gets you to the button in one click;
+# you still confirm the run yourself, signed in as you, on github.com.
+WORKFLOW_RUN_URL = "https://github.com/danreed001-droid/volume/actions/workflows/volume-scan.yml"
+
 
 def _escape(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -127,9 +135,18 @@ PAGE_HEAD = """<!DOCTYPE html>
     background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
     padding: 14px 18px; border-radius: 10px; border: 1px solid var(--border);
     margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    flex-wrap: wrap;
   }
   .hdr h1 { font-size: 18px; letter-spacing: 1px; margin: 0 0 4px; }
   .hdr p { font-size: 12px; color: var(--muted); margin: 2px 0; }
+  .run-btn {
+    background: var(--good); color: #0d1117; border: none; border-radius: 999px;
+    padding: 10px 18px; font: inherit; font-size: 12px; font-weight: bold;
+    letter-spacing: 0.5px; text-decoration: none; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .run-btn:hover { filter: brightness(1.1); }
   .tabbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
   .tab-btn {
     background: var(--surface); color: var(--ink); border: 1px solid var(--border);
@@ -165,8 +182,13 @@ PAGE_HEAD = """<!DOCTYPE html>
 </head>
 <body>
   <div class="hdr">
-    <h1>Volume Reports Dashboard</h1>
-    <p>Generated __GENERATED__ &middot; toggle between the three reports below &mdash; each tab is the same file you'd otherwise open separately from reports/</p>
+    <div>
+      <h1>Volume Reports Dashboard</h1>
+      <p>Generated __GENERATED__ &middot; toggle between the three reports below &mdash; each tab is the same file you'd otherwise open separately from reports/</p>
+    </div>
+    <div>
+      <a class="run-btn" href="__WORKFLOW_RUN_URL__" target="_blank" rel="noopener">&#9654; Run scan now</a>
+    </div>
   </div>
   <div class="tabbar">
 __TAB_BUTTONS__
@@ -237,6 +259,7 @@ def build_dashboard() -> str:
 
     html = PAGE_HEAD
     html = html.replace("__GENERATED__", generated)
+    html = html.replace("__WORKFLOW_RUN_URL__", WORKFLOW_RUN_URL)
     html = html.replace("__TAB_BUTTONS__", "\n".join(tab_buttons))
     html = html.replace("__TAB_PANELS__", "\n".join(tab_panels))
     html = html.replace("__DEFAULT_TAB__", first_available or "")
