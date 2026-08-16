@@ -13,7 +13,9 @@ permissions:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    # Bumped from 90 -> 120 to leave headroom for the second scan
+    # (dual-timeframe watchlist report, ~650 tickers x 2 timeframes) below.
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,6 +30,15 @@ jobs:
 
       - name: Run volume scan
         run: python scripts/scan_volume.py
+
+      - name: Run dual-timeframe watchlist scan
+        # continue-on-error so a hiccup in this second scan (e.g. a bad
+        # Yahoo Finance day) never blocks committing the primary volume
+        # scan's report above -- this script already handles individual
+        # ticker failures internally and only errors out on something
+        # unexpected.
+        continue-on-error: true
+        run: python scripts/dual_timeframe_scan.py -o reports/dual_timeframe_latest.html
 
       - name: Commit and push report
         run: |
