@@ -1,6 +1,6 @@
-# Volume Scan — 2026-09-07
+# Volume Scan — 2026-09-08
 
-Universe sizes: S&P 500 = 503, Nasdaq Composite = 4326, ETFs = 10. Ranked by the most recent session's volume relative to the trailing 50/100-session average (biggest volume spikes first). Tickers averaging under 100,000 shares/day are excluded to filter out illiquid noise.
+Universe sizes: S&P 500 = 503, Nasdaq Composite = 4323, ETFs = 10. Ranked by the most recent session's volume relative to the trailing 50/100-session average (biggest volume spikes first). Tickers averaging under 100,000 shares/day are excluded to filter out illiquid noise.
 
 ## S&P 500
 ### Top 25 — latest session volume vs 50-session average
@@ -112,19 +112,19 @@ Universe sizes: S&P 500 = 503, Nasdaq Composite = 4326, ETFs = 10. Ranked by the
 | 10 | ATER | 47,880,000 | 3,013,740 | 15.89x |
 | 11 | BIAF | 19,787,600 | 1,263,325 | 15.66x |
 | 12 | GPRO | 282,745,900 | 19,154,910 | 14.76x |
-| 13 | BTAI | 42,941,900 | 3,718,575 | 11.55x |
-| 14 | AKAN | 21,576,200 | 1,893,441 | 11.40x |
-| 15 | VRXA | 3,565,900 | 318,994 | 11.18x |
-| 16 | EPRX | 3,520,500 | 319,055 | 11.03x |
-| 17 | LULU | 37,312,300 | 3,597,436 | 10.37x |
-| 18 | WETO | 21,073,900 | 2,049,177 | 10.28x |
-| 19 | CMND | 15,421,200 | 1,570,287 | 9.82x |
-| 20 | NCT | 13,026,100 | 1,373,937 | 9.48x |
-| 21 | EMAT | 2,954,300 | 321,125 | 9.20x |
-| 22 | ONCO | 6,392,100 | 742,932 | 8.60x |
-| 23 | ISPC | 4,420,400 | 544,177 | 8.12x |
-| 24 | TWG | 2,491,700 | 310,753 | 8.02x |
-| 25 | PSQL | 3,153,200 | 422,015 | 7.47x |
+| 13 | AKAN | 21,576,200 | 1,893,441 | 11.40x |
+| 14 | VRXA | 3,565,900 | 318,994 | 11.18x |
+| 15 | EPRX | 3,520,500 | 319,055 | 11.03x |
+| 16 | LULU | 37,312,300 | 3,597,436 | 10.37x |
+| 17 | WETO | 21,073,900 | 2,049,177 | 10.28x |
+| 18 | CMND | 15,421,200 | 1,570,287 | 9.82x |
+| 19 | NCT | 13,026,100 | 1,373,937 | 9.48x |
+| 20 | EMAT | 2,954,300 | 321,125 | 9.20x |
+| 21 | ONCO | 6,392,100 | 742,932 | 8.60x |
+| 22 | ISPC | 4,420,400 | 544,177 | 8.12x |
+| 23 | TWG | 2,491,700 | 310,753 | 8.02x |
+| 24 | PSQL | 3,153,200 | 422,015 | 7.47x |
+| 25 | ALTI | 1,431,800 | 194,393 | 7.37x |
 
 ### Fresh volume highs — latest session above every one of the trailing 50 AND 100 sessions
 | # | Ticker | Latest Volume | Prior 50d Max | Prior 100d Max | vs 100d Max |
