@@ -116,6 +116,7 @@ TABS = [
     {"id": "2d", "label": "Volume @ Price (2D)", "kind": "iframe", "path": "volume_2d_latest.html"},
     {"id": "dual", "label": "Dual-Timeframe Watchlist", "kind": "iframe", "path": "dual_timeframe_latest.html"},
     {"id": "quality", "label": "Quality Dips", "kind": "markdown", "path": "quality_dip_latest.md"},
+    {"id": "qbacktest", "label": "Quality Dips Backtest", "kind": "markdown", "path": "quality_dip_backtest.md"},
     # A separate repo/site (not one of this workflow's own reports), so it's
     # "external" rather than "iframe": always available (no local file to
     # check for), and rendered with a visible "open directly" link alongside

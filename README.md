@@ -161,3 +161,24 @@ Run it locally (takes about 3-4 minutes):
 ```bash
 python scripts/quality_dip_scan.py
 ```
+
+### Backtest
+
+`scripts/backtest_quality_dip.py` replays the same screen at every month-end
+since 2005 and measures each signal's 1-year and 3-year total return against
+SPY. It writes `reports/quality_dip_backtest.md`, which shows up as the
+"Quality Dips Backtest" dashboard tab. It's a one-off research run, not part
+of the scheduled workflow.
+
+- **Financials:** SEC EDGAR XBRL 10-K data, which starts around 2009-2011.
+  Each signal uses only the latest 10-K *filed* by that date, so nothing
+  from the future leaks in.
+- **Universe:** today's S&P 500 (with index join dates) and Nasdaq-100 from
+  the NIBII repo's `data/` lists, plus this repo's watchlist. An S&P 500
+  stock only counts from the date it joined the index.
+- **Survivorship bias:** companies that collapsed and left the index are
+  missing, so results are flattered.
+
+```bash
+SEC_USER_AGENT="Your Name you@example.com" python scripts/backtest_quality_dip.py
+```
