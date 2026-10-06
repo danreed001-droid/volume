@@ -5,6 +5,7 @@ together the three reports this repo produces:
   1. Volume Scan (Top Movers)  -- reports/latest.md      (scan_volume.py)
   2. Volume @ Price (2D)       -- reports/volume_2d_latest.html (scan_volume.py / plot_vsa2d.py)
   3. Dual-Timeframe Watchlist  -- reports/dual_timeframe_latest.html (dual_timeframe_scan.py)
+  4. Quality Dips              -- reports/quality_dip_latest.md (quality_dip_scan.py)
 
 Run this LAST in the workflow, after the scripts that produce those three
 files, so it always reflects whatever exists in reports/ at that point.
@@ -114,6 +115,7 @@ TABS = [
     {"id": "scan", "label": "Volume Scan (Top Movers)", "kind": "markdown", "path": "latest.md"},
     {"id": "2d", "label": "Volume @ Price (2D)", "kind": "iframe", "path": "volume_2d_latest.html"},
     {"id": "dual", "label": "Dual-Timeframe Watchlist", "kind": "iframe", "path": "dual_timeframe_latest.html"},
+    {"id": "quality", "label": "Quality Dips", "kind": "markdown", "path": "quality_dip_latest.md"},
     # A separate repo/site (not one of this workflow's own reports), so it's
     # "external" rather than "iframe": always available (no local file to
     # check for), and rendered with a visible "open directly" link alongside

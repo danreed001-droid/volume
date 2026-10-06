@@ -45,6 +45,12 @@ jobs:
         continue-on-error: true
         run: python scripts/dual_timeframe_scan.py -o reports/dual_timeframe_latest.html
 
+      - name: Run quality dip scan
+        # Strong-fundamentals stocks trading near their 52-week low.
+        # continue-on-error for the same reason as the step above.
+        continue-on-error: true
+        run: python scripts/quality_dip_scan.py -o reports/quality_dip_latest.md
+
       - name: Build combined dashboard (reports/index.html)
         run: python scripts/build_dashboard.py
 

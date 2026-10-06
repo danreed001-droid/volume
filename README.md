@@ -131,3 +131,33 @@ right after the main volume scan, writing to
 `reports/dual_timeframe_latest.html`. That step is marked
 `continue-on-error: true` so a bad day for this scan never blocks the
 primary volume scan's report from being committed.
+
+## Quality dip scan
+
+`scripts/quality_dip_scan.py` looks for financially strong companies whose
+stock is trading near its 52-week low -- e.g. MSFT around $340 in mid-2026.
+It writes `reports/quality_dip_latest.md` and shows up as the "Quality Dips"
+tab on the dashboard.
+
+- **Universe:** the S&P 500 plus the themed stock groups in
+  `scripts/watchlists.py` (ETFs, FX, crypto and futures are skipped).
+- **Price screen:** last close within `DIP_MAX_ABOVE_LOW` (default 15%)
+  of the 52-week low, using one chunked `yf.download()`.
+- **Quality screen** (`yf.Ticker(t).info`, run only on price-screen
+  survivors). Every check must pass:
+  - market cap >= `MIN_MARKET_CAP` (default $10B)
+  - revenue growth >= `MIN_REVENUE_GROWTH` (default 5% YoY)
+  - net margin >= `MIN_PROFIT_MARGIN` (default 10%)
+  - positive free cash flow
+  - net cash, or net debt <= `MAX_NET_DEBT_TO_EBITDA` (default 1.5x)
+    EBITDA. A strict cash > debt test isn't used because Yahoo's
+    `totalDebt` includes lease liabilities.
+- Names failing exactly one check are listed as **close calls** (up to
+  `TOP_N`). Missing data counts as a fail, so banks and insurers usually
+  miss on FCF, which Yahoo doesn't report for them.
+
+Run it locally (takes about 3-4 minutes):
+
+```bash
+python scripts/quality_dip_scan.py
+```
