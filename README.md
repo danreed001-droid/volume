@@ -182,3 +182,17 @@ of the scheduled workflow.
 ```bash
 SEC_USER_AGENT="Your Name you@example.com" python scripts/backtest_quality_dip.py
 ```
+
+### Boost mix + leverage
+
+`scripts/backtest_boost_mix.py` mixes NIBII's "Auto + News boost" momentum
+plan with the quality-dip portfolio (100/0, 70/30, 50/50, 0/100) at 1x to
+2x leverage. The margin rate is 6% or 8%, and weights are rebalanced weekly
+using NIBII's `backtest_leverage.run`. Boost alone is also run from 2000 so
+the dot-com crash and 2008 are included. It needs a local NIBII checkout
+and a prior run of `backtest_quality_dip.py`. Output:
+`reports/boost_mix_backtest.md`.
+
+```bash
+python scripts/backtest_boost_mix.py --nibii-dir ../NIBII
+```
