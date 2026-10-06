@@ -68,6 +68,7 @@ MAX_NET_DEBT_TO_EBITDA = qds.MAX_NET_DEBT_TO_EBITDA
 COOLDOWN_MONTHS = int(os.environ.get("COOLDOWN_MONTHS", "12"))
 HORIZONS = {"1y": 12, "3y": 36}  # months forward
 BENCHMARK = "SPY"
+PORTFOLIO_SINCE = "2011-01-03"  # first full year with point-in-time quality data
 
 NIBII_RAW = "https://raw.githubusercontent.com/danreed001-droid/NIBII/main/data/{name}"
 
@@ -337,6 +338,66 @@ def build_signals(prices: pd.DataFrame, fundamentals: dict[str, list[dict]],
     return pd.DataFrame(rows)
 
 
+def portfolio_curve(signals: pd.DataFrame, prices: pd.DataFrame, months_held: int) -> pd.Series:
+    """Daily value of a portfolio that buys every quality signal at its
+    month-end close and holds it for `months_held` months, equal-weight
+    across whatever is held (rebalanced daily). Cash (0%) when nothing is
+    held. Starts at the first quality signal."""
+    q = signals[signals["quality"] == True]  # noqa: E712
+    month_ends = prices.groupby(prices.index.to_period("M")).tail(1).index
+    pos = {d: i for i, d in enumerate(month_ends)}
+    rets = prices.pct_change(fill_method=None)
+    held = pd.DataFrame(False, index=prices.index, columns=prices.columns)
+    for _, r in q.iterrows():
+        i = pos[pd.Timestamp(r["date"])]
+        start = month_ends[i]
+        end = month_ends[min(i + months_held, len(month_ends) - 1)]
+        # held from the session after the buy close through the sell close
+        held.loc[(held.index > start) & (held.index <= end), r["ticker"]] = True
+    day_ret = rets.where(held).mean(axis=1).fillna(0.0)
+    first = month_ends[pos[pd.Timestamp(q["date"].min())]]
+    return (1 + day_ret[day_ret.index > first]).cumprod()
+
+
+def curve_stats(values: pd.Series) -> dict:
+    """Same definitions as NIBII's mtl.backtest.curve_stats: total, annual
+    (252 sessions a year) and worst peak-to-trough drop."""
+    total = values.iloc[-1] / values.iloc[0] - 1
+    years = (len(values) - 1) / 252
+    return {"total": total, "annual": (1 + total) ** (1 / years) - 1,
+            "maxDD": (values / values.cummax() - 1).min()}
+
+
+def portfolio_section(signals: pd.DataFrame, prices: pd.DataFrame, since: str, cache_dir: str) -> list[str]:
+    spy = prices[BENCHMARK].dropna()
+    curves = {f"Quality dips, hold {m // 12}y": portfolio_curve(signals, prices, m) for m in (12, 36)}
+    curves["SPY"] = spy
+    lines = [
+        f"Since {since}. Every quality signal bought at its month-end close, equal weight, held 1 or 3 years.",
+        "",
+        "| Portfolio | Total | Per year | Worst drop | $10k became |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for name, c in curves.items():
+        c = c[c.index >= since]
+        st = curve_stats(c)
+        lines.append(f"| {name} | {st['total']:+,.0%} | {st['annual']:+.1%} | {st['maxDD']:.0%} | "
+                     f"${10000 * (1 + st['total']):,.0f} |")
+    years = sorted({d.year for d in spy.index if d >= pd.Timestamp(since)})
+    lines += ["", "| Year | " + " | ".join(curves) + " |", "|---|" + "---:|" * len(curves)]
+    for y in years:
+        cells = []
+        for c in curves.values():
+            c = c[c.index >= since]
+            yr = c[c.index.year == y]
+            prev = c[c.index.year < y]
+            base = prev.iloc[-1] if not prev.empty else yr.iloc[0]
+            cells.append(f"{yr.iloc[-1] / base - 1:+.0%}")
+        lines.append(f"| {y} | " + " | ".join(cells) + " |")
+    pd.DataFrame(curves).to_csv(os.path.join(cache_dir, "portfolio_curves.csv"))
+    return lines
+
+
 def results_header() -> list[str]:
     lines = [
         "| Group | Horizon | Signals | Avg return | Median return | % positive | Avg SPY same window | Avg excess vs SPY | % beat SPY |",
@@ -389,7 +450,7 @@ def examples(df: pd.DataFrame, label: str, n: int = 10) -> list[str]:
     return lines
 
 
-def build_report(df: pd.DataFrame, n_tickers: int, n_with_fund: int) -> str:
+def build_report(df: pd.DataFrame, n_tickers: int, n_with_fund: int, portfolio: list[str]) -> str:
     first_q = df[df["quality"].notna()]["date"].min()
     a = df
     b = df[df["quality"] == True]  # noqa: E712
@@ -416,6 +477,10 @@ def build_report(df: pd.DataFrame, n_tickers: int, n_with_fund: int) -> str:
         "",
         "Compare B with C to see whether the quality checks help. A' covers the same years as B and C, "
         "so it's the fair price-only comparison.",
+        "",
+        "## As a portfolio",
+        "",
+        *portfolio,
         "",
         "## By signal year (3-year forward returns)",
         "",
@@ -461,7 +526,8 @@ def main() -> None:
     signals = build_signals(prices, fundamentals, added)
     signals.to_csv(os.path.join(args.cache_dir, "signals.csv"), index=False)
     n_with_fund = sum(1 for t in prices.columns if fundamentals.get(t))
-    report = build_report(signals, prices.shape[1] - 1, n_with_fund)
+    portfolio = portfolio_section(signals, prices, PORTFOLIO_SINCE, args.cache_dir)
+    report = build_report(signals, prices.shape[1] - 1, n_with_fund, portfolio)
     with open(args.output, "w", encoding="utf-8") as fh:
         fh.write(report)
     print(f"Wrote {args.output}", file=sys.stderr)

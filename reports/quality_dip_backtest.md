@@ -17,6 +17,35 @@ Month-end signals from 2004-12 to 2026-10 across 571 stocks (547 with SEC financ
 
 Compare B with C to see whether the quality checks help. A' covers the same years as B and C, so it's the fair price-only comparison.
 
+## As a portfolio
+
+Since 2011-01-03. Every quality signal bought at its month-end close, equal weight, held 1 or 3 years.
+
+| Portfolio | Total | Per year | Worst drop | $10k became |
+|---|---:|---:|---:|---:|
+| Quality dips, hold 1y | +894% | +15.7% | -34% | $99,370 |
+| Quality dips, hold 3y | +1,171% | +17.5% | -35% | $127,070 |
+| SPY | +708% | +14.2% | -34% | $80,785 |
+
+| Year | Quality dips, hold 1y | Quality dips, hold 3y | SPY |
+|---|---:|---:|---:|
+| 2011 | +23% | +24% | +1% |
+| 2012 | +25% | +25% | +16% |
+| 2013 | +28% | +33% | +32% |
+| 2014 | +23% | +22% | +13% |
+| 2015 | -2% | -1% | +1% |
+| 2016 | +20% | +19% | +12% |
+| 2017 | +29% | +30% | +22% |
+| 2018 | -5% | -5% | -5% |
+| 2019 | +41% | +37% | +31% |
+| 2020 | +34% | +36% | +18% |
+| 2021 | +20% | +33% | +29% |
+| 2022 | -16% | -16% | -18% |
+| 2023 | +23% | +28% | +26% |
+| 2024 | +15% | +12% | +25% |
+| 2025 | +5% | +7% | +18% |
+| 2026 | +1% | +8% | +15% |
+
 ## By signal year (3-year forward returns)
 
 | Signal year | Quality signals | Avg 3y | vs SPY | Failed-quality signals | Avg 3y | vs SPY |
