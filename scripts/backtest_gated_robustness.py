@@ -44,7 +44,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--nibii-dir", required=True)
     parser.add_argument("-o", "--output", default="reports/gated_leverage_robustness.md")
+    parser.add_argument("--levels", default=",".join(f"{h:g}:{l:g}" for h, l in LEVELS),
+                        help="hi:lo pairs, e.g. 1:0.6,1:0.4 for no-margin versions")
     args = parser.parse_args()
+    levels = [tuple(float(x) for x in pair.split(":")) for pair in args.levels.split(",")]
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     out_path = os.path.join(repo, args.output)
 
@@ -115,7 +118,7 @@ def main() -> None:
         "",
     ]
     curves_by = {}
-    for hi, lo in LEVELS:
+    for hi, lo in levels:
         for a, b in spans:
             ann0, dd0, wy0, r0 = row("Boost 1x (no gating)", base, a, b)
             lines += [f"## {hi:g}x in uptrend / {lo:g}x otherwise — {a[:4]} to {b[:4]}", "",
@@ -142,7 +145,7 @@ def main() -> None:
             lines += ["", f"**{wins} of {len(signals)} signals beat plain 1x on return.**", ""]
 
     # year by year: SPY 200-day, 1.5 / 0.6 vs 1x
-    gated = curves_by[("SPY > 200-day avg", 1.5, 0.6)]
+    gated = curves_by[("SPY > 200-day avg", *levels[0])]
 
     def yearly(c):
         ye, prev, out = {}, c[0][1], {}
@@ -153,7 +156,7 @@ def main() -> None:
             prev = ye[y]
         return out
     yb, yg = yearly(base), yearly(gated)
-    lines += ["## Year by year — SPY 200-day, 1.5x / 0.6x vs plain 1x", "",
+    lines += [f"## Year by year — SPY 200-day, {levels[0][0]:g}x / {levels[0][1]:g}x vs plain 1x", "",
               "| Year | Boost 1x | Gated | Difference |", "|---|---:|---:|---:|"]
     better = 0
     for y in sorted(yb):
