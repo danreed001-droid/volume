@@ -196,3 +196,23 @@ and a prior run of `backtest_quality_dip.py`. Output:
 ```bash
 python scripts/backtest_boost_mix.py --nibii-dir ../NIBII
 ```
+
+### Levering Boost: trend-gated leverage and put hedges
+
+`scripts/backtest_boost_leverage_ideas.py` tests ways to lever NIBII's
+"Auto + News boost" without the losses constant leverage suffers in
+2000-02 and 2008:
+
+- **Trend-gated leverage:** L x Boost while SPY is above its 200-day
+  average at the Friday close, a lower level (1x, 0.6x or cash) otherwise.
+- **SPY put hedge:** 3-month 10%-out-of-the-money SPY puts on the levered
+  exposure, rolled monthly. They're priced with Black-Scholes at VIX + 4
+  points.
+
+It skips buying calls on the picks: NIBII's `backtest_options_only.py`
+already shows that loses money over 2000-2026. Output:
+`reports/boost_leverage_ideas.md`.
+
+```bash
+python scripts/backtest_boost_leverage_ideas.py --nibii-dir ../NIBII
+```
