@@ -63,8 +63,9 @@ def bs_put(s: float, k: float, t: float, vol: float, r: float) -> float:
     return k * math.exp(-r * t) * _ncdf(-(d1 - v)) - s * _ncdf(-d1)
 
 
-def simulate(cal, boost, spy, vix, fridays, sma, lev_hi, lev_lo=None, hedge=False):
-    """Daily NAV curve [[date, nav]]. lev_lo=None -> constant lev_hi."""
+def simulate(cal, boost, spy, vix, fridays, sma, lev_hi, lev_lo=None, hedge=False, up=None):
+    """Daily NAV curve [[date, nav]]. lev_lo=None -> constant lev_hi.
+    up: optional {date: bool} uptrend flag replacing the SPY-vs-SMA test."""
     nav, lev = 1.0, lev_hi
     put = None  # dict(k, exp_idx, qty, value)
     out = [[cal[0], nav]]
@@ -97,7 +98,8 @@ def simulate(cal, boost, spy, vix, fridays, sma, lev_hi, lev_lo=None, hedge=Fals
         month = d[:7]
         # weekly leverage decision at the Friday close, applied from next session
         if lev_lo is not None and d in fridays:
-            lev = lev_hi if spy[d] > sma[d] else lev_lo
+            is_up = up[d] if up is not None else spy[d] > sma[d]
+            lev = lev_hi if is_up else lev_lo
         out.append([d, nav])
     return out
 
@@ -156,7 +158,10 @@ def main() -> None:
         last = vix_raw.get(d, last)
         vix[d] = last
     # 200-day SMA of SPY over the full benchmark history (starts before the backtest)
-    all_spy = [(d, v) for d, v in sorted(dict(curves["SPY"]).items())]
+    # include benchmark history from before the backtest start so the average is warm on day one
+    spy_hist = dict(curves["SPY"])
+    spy_hist.update({r[0]: r[4] for r in blh.load()["bench"]["SPY"] if r[0] not in spy_hist})
+    all_spy = sorted(spy_hist.items())
     sma, window, total = {}, [], 0.0
     for d, v in all_spy:
         window.append(v)
